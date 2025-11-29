@@ -96,12 +96,12 @@ def navegar_a_castellon(driver):
         print(f"❌ Error navegando a Castellón: {e}")
         return False
 
-def extraer_viviendas_de_pagina(driver):
+def extraer_viviendas_de_pagina(driver, pagina_num=1):
     """
     Extrae las viviendas de la página actual
     """
     try:
-        print("🔍 Extrayendo viviendas de la página...")
+        print(f"🔍 Extrayendo viviendas de la página {pagina_num}...")
         
         # Scroll para cargar contenido dinámico
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -114,7 +114,7 @@ def extraer_viviendas_de_pagina(driver):
         viviendas = []
         articles = soup.find_all('article', class_='item')
         
-        print(f"📊 Encontrados {len(articles)} artículos")
+        print(f"📊 Encontrados {len(articles)} artículos en página {pagina_num}")
         
         for article in articles:
             try:
@@ -203,7 +203,7 @@ def extraer_viviendas_de_pagina(driver):
                 }
                 
                 viviendas.append(vivienda_data)
-                print(f"   ✅ Añadida: {title}")
+                print(f"   ✅ P{pagina_num}: {title[:60]}...")
                 print(f"      💰 {price:,}€ - 📏 {metros}m² - 🏠 {habitaciones}hab - 🛿 {banos}baños")
                 if planta:
                     print(f"      🏢 {planta}")
@@ -213,14 +213,156 @@ def extraer_viviendas_de_pagina(driver):
                 print(f"   ❌ Error procesando artículo: {e}")
                 continue
         
-        # Ordenar por mejor precio por m² (menor precio por m² = mejor)
-        viviendas_ordenadas = sorted(viviendas, key=lambda x: x['precio_por_m2'])
-        
-        return viviendas_ordenadas
+        return viviendas
         
     except Exception as e:
         print(f"❌ Error extrayendo viviendas: {e}")
         return []
+
+def ir_a_siguiente_pagina(driver, pagina_num):
+    """
+    Navega a la siguiente página haciendo clic en el número de página
+    """
+    try:
+        print(f"📄 Intentando ir a página {pagina_num}...")
+        
+        # Scroll hacia abajo para asegurar que la paginación sea visible
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+        
+        # Buscar el enlace de paginación específico en el div.pagination
+        try:
+            # Buscar por número de página exacto en el div de paginación
+            pagination_link = driver.find_element(By.XPATH, f"//div[@class='pagination']//a[text()='{pagina_num}']")
+            
+            # Hacer scroll hasta el elemento de paginación
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", pagination_link)
+            time.sleep(2)
+            
+            # Obtener la URL antes del clic para verificar el cambio
+            url_antes = driver.current_url
+            print(f"   📍 URL antes: {url_antes}")
+            
+            # Clic usando JavaScript para evitar problemas de interceptación
+            driver.execute_script("arguments[0].click();", pagination_link)
+            print(f"✅ Clic en página {pagina_num} ejecutado")
+            
+            # Esperar a que cargue la nueva página
+            time.sleep(6)
+            
+            # Verificar que la URL cambió
+            url_despues = driver.current_url
+            print(f"   📍 URL después: {url_despues}")
+            
+            if url_antes != url_despues:
+                print(f"✅ Navegación a página {pagina_num} exitosa")
+                return True
+            else:
+                print(f"⚠️ La URL no cambió, puede que no se haya navegado")
+                return False
+            
+        except Exception as e:
+            print(f"   ⚠️ No se encontró el enlace para página {pagina_num}: {e}")
+            
+            # Intentar con el botón "Siguiente" usando la clase correcta
+            try:
+                siguiente_btn = driver.find_element(By.XPATH, "//div[@class='pagination']//a[contains(@class, 'icon-arrow-right-after')]")
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", siguiente_btn)
+                time.sleep(2)
+                
+                url_antes = driver.current_url
+                driver.execute_script("arguments[0].click();", siguiente_btn)
+                print(f"✅ Clic en 'Siguiente' ejecutado")
+                time.sleep(6)
+                
+                url_despues = driver.current_url
+                if url_antes != url_despues:
+                    print(f"✅ Navegación con 'Siguiente' exitosa")
+                    return True
+                else:
+                    print(f"⚠️ La URL no cambió con 'Siguiente'")
+                    return False
+                
+            except Exception as e2:
+                print(f"   ❌ Tampoco se encontró botón 'Siguiente': {e2}")
+                return False
+        
+    except Exception as e:
+        print(f"❌ Error navegando a página {pagina_num}: {e}")
+        return False
+
+def hay_mas_paginas(driver, pagina_actual):
+    """
+    Verifica si hay más páginas disponibles
+    """
+    try:
+        # Buscar si existe un enlace a la siguiente página
+        siguiente_pagina = pagina_actual + 1
+        
+        # Buscar por número de página específico
+        try:
+            next_link = driver.find_element(By.XPATH, f"//div[@class='pagination']//a[text()='{siguiente_pagina}']")
+            return True
+        except:
+            pass
+        
+        # Buscar botón "Siguiente"
+        try:
+            siguiente_btn = driver.find_element(By.XPATH, "//div[@class='pagination']//a[contains(@class, 'icon-arrow-right-after')]")
+            return True
+        except:
+            pass
+        
+        return False
+        
+    except Exception as e:
+        print(f"❌ Error verificando páginas disponibles: {e}")
+        return False
+
+def extraer_todas_las_paginas(driver):
+    """
+    Extrae viviendas de todas las páginas disponibles
+    """
+    todas_las_viviendas = []
+    pagina_actual = 1
+    max_paginas = 10  # Límite de seguridad para evitar bucles infinitos
+    
+    print("🔄 Iniciando extracción de todas las páginas...")
+    
+    while pagina_actual <= max_paginas:
+        print(f"\n📖 Procesando página {pagina_actual}...")
+        
+        # Extraer viviendas de la página actual
+        viviendas_pagina = extraer_viviendas_de_pagina(driver, pagina_actual)
+        
+        if not viviendas_pagina:
+            print(f"⚠️ No se encontraron viviendas en página {pagina_actual}")
+            break
+        
+        print(f"✅ Extraídas {len(viviendas_pagina)} viviendas de página {pagina_actual}")
+        todas_las_viviendas.extend(viviendas_pagina)
+        
+        # Verificar si hay más páginas antes de intentar navegar
+        if not hay_mas_paginas(driver, pagina_actual):
+            print(f"🔚 No hay más páginas disponibles después de página {pagina_actual}")
+            break
+        
+        # Intentar ir a la siguiente página
+        pagina_actual += 1
+        
+        if pagina_actual <= max_paginas:
+            if not ir_a_siguiente_pagina(driver, pagina_actual):
+                print(f"🔚 Error navegando a página {pagina_actual}, finalizando...")
+                break
+        
+        # Pausa entre páginas para comportamiento humano
+        time.sleep(3)
+    
+    # Ordenar todas las viviendas por mejor precio por m²
+    print(f"\n📊 Ordenando {len(todas_las_viviendas)} viviendas totales por precio/m²...")
+    viviendas_ordenadas = sorted(todas_las_viviendas, key=lambda x: x['precio_por_m2'])
+    
+    return viviendas_ordenadas
 
 def extract_viviendas_castellon():
     """
@@ -253,8 +395,8 @@ def extract_viviendas_castellon():
         if not navegar_a_castellon(driver):
             return []
         
-        # Paso 3: Extraer las viviendas de la página
-        viviendas = extraer_viviendas_de_pagina(driver)
+        # Paso 3: Extraer las viviendas de todas las páginas
+        viviendas = extraer_todas_las_paginas(driver)
         
         # Mostrar resultados inmediatamente
         mostrar_resultados(viviendas)
