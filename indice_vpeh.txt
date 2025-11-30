@@ -1,0 +1,22 @@
+Aquí tienes el texto formateado para que puedas copiarlo y pegarlo fácilmente en un archivo de texto (TXT), eliminando el formato Markdown y LaTeX:
+
+```
+Indicador de Valor por Espacio y Habitación (VPEH)
+
+El indicador que propongo se basa en el Precio por Metro Cuadrado y lo ajusta (penaliza o bonifica) en función de la Cantidad de Habitaciones que ofrece la propiedad.
+
+Fórmula del Indicador VPEH:
+VPEH = Precio / (Tamaño * sqrt(Habitaciones))
+
+Donde:
+Precio es el price_euro.
+Tamaño es el size_sqm.
+sqrt(Habitaciones) es la raíz cuadrada de la cantidad de bedrooms. Usar la raíz cuadrada suaviza el impacto de la cantidad de habitaciones, ya que una casa con muchas habitaciones (e.g., para inversión o alquiler por estancias) es más valiosa, pero no linealmente con el precio.
+
+¿Cómo interpretar el Indicador VPEH?
+- Un valor VPEH más bajo indica una mejor oferta.
+- Un valor bajo significa que estás pagando menos euros por la combinación de un metro cuadrado de superficie Y la cantidad de habitaciones que contiene esa superficie.
+- Este indicador da prioridad a las propiedades que son grandes y que tienen un buen número de habitaciones en relación a su precio. Es ideal para inversores que buscan rentabilidad por estancia o para familias que necesitan mucho espacio y habitaciones a un costo eficiente.
+```
+
+¿Necesitas que te ayude a formatear alguna otra parte de la conversación o los datos?

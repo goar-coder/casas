@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 def aceptar_cookies(driver):
     """
@@ -190,6 +191,9 @@ def extraer_viviendas_de_pagina(driver, pagina_num=1):
                 if description_element:
                     descripcion = description_element.get_text(strip=True)
                 
+                # Extraer descripción detallada visitando el enlace
+                descripcion_detallada = extraer_descripcion_detallada(driver, full_link, title[:50])
+                
                 vivienda_data = {
                     'precio': price,
                     'metros': metros,
@@ -199,6 +203,7 @@ def extraer_viviendas_de_pagina(driver, pagina_num=1):
                     'enlace': full_link,
                     'titulo': title,
                     'descripcion': descripcion,
+                    'descripcion_detallada': descripcion_detallada,
                     'planta': planta
                 }
                 
@@ -290,6 +295,62 @@ def ir_a_siguiente_pagina(driver, pagina_num):
     except Exception as e:
         print(f"❌ Error navegando a página {pagina_num}: {e}")
         return False
+
+def extraer_descripcion_detallada(driver, enlace, titulo_corto):
+    """
+    Visita el enlace de la propiedad y extrae la descripción completa del anunciante
+    """
+    descripcion_html = ""
+    
+    try:
+        print(f"      🔗 Visitando: {titulo_corto}...")
+        
+        # Guardar la URL actual para volver después
+        url_original = driver.current_url
+        
+        # Navegar al enlace de la propiedad
+        driver.get(enlace)
+        time.sleep(4)  # Esperar a que cargue la página
+        
+        # Buscar el comentario del anunciante
+        try:
+            # Buscar el div comment que contiene la descripción
+            comment_div = driver.find_element(By.CSS_SELECTOR, "div.comment[data-expandable='true']")
+            
+            # Buscar el párrafo dentro del div comment
+            descripcion_element = comment_div.find_element(By.CSS_SELECTOR, "div.adCommentsLanguage p")
+            
+            # Extraer el texto sin tags HTML
+            descripcion_html = descripcion_element.get_attribute('textContent')
+            
+            # Limpiar saltos de línea y espacios extra
+            if descripcion_html:
+                descripcion_html = descripcion_html.replace('\n', ' ').replace('\r', ' ').strip()
+                # Eliminar espacios múltiples
+                descripcion_html = ' '.join(descripcion_html.split())
+                print(f"      ✅ Descripción extraída ({len(descripcion_html)} caracteres)")
+            else:
+                print(f"      ⚠️ Descripción vacía")
+                
+        except NoSuchElementException:
+            print(f"      ⚠️ No se encontró descripción del anunciante")
+        except Exception as e:
+            print(f"      ❌ Error extrayendo descripción: {e}")
+        
+        # Volver a la página original
+        driver.get(url_original)
+        time.sleep(2)  # Esperar a que cargue la página original
+        
+    except Exception as e:
+        print(f"      ❌ Error visitando enlace: {e}")
+        # Intentar volver a la página original en caso de error
+        try:
+            driver.get(url_original)
+            time.sleep(2)
+        except:
+            pass
+    
+    return descripcion_html
 
 def hay_mas_paginas(driver, pagina_actual):
     """
@@ -477,6 +538,7 @@ def guardar_json(viviendas):
                 "bathrooms": vivienda['banos'],
                 "price_per_sqm_euro": round(vivienda['precio_por_m2'], 2),
                 "description_snippet": vivienda['descripcion'],
+                "description": vivienda['descripcion_detallada'] if vivienda['descripcion_detallada'] else None,
                 "link": vivienda['enlace'],
                 "floor": vivienda['planta'] if vivienda['planta'] else None
             }
